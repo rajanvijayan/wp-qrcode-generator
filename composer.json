@@ -1,0 +1,16 @@
+{
+    "name": "rajanvijayan/wp-qrcode-generator",
+    "description": "A WordPress plugin to generate QR codes with a custom logo.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.4",
+        "endroid/qr-code": "^4.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "QRCodeGenerator\\": "src/"
+        }
+    }
+}
