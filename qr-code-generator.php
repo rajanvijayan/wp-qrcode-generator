@@ -1,45 +1,80 @@
 <?php
 /**
- * Plugin Name: QR Code Generator with Logo
- * Description: Generate QR codes with a custom logo for URLs or text.
- * Version: 1.0.0
+ * Plugin Name: Simple QR Code Generator with Logo
+ * Description: Generates a QR code with a logo and label, then saves it in the uploads folder.
+ * Version: 1.3
  * Author: Rajan Vijayan
- * Author URI: https://rajanvijayan.com
  * Text Domain: qr-code-generator
  */
 
 if (!defined('ABSPATH')) {
-    exit;
+    exit; // Prevent direct access
 }
 
+// Include Composer autoload
 require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/src/QRGenerator.php';
 
-use QRCodeGenerator\QRGenerator;
+use Endroid\QrCode\Color\Color;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Label\Label;
+use Endroid\QrCode\Logo\Logo;
+use Endroid\QrCode\RoundBlockSizeMode;
+use Endroid\QrCode\Writer\PngWriter;
 
-// Shortcode to display QR Code Generator Form
-function qrcode_generator_shortcode() {
-    ob_start();
-    include __DIR__ . '/templates/form.php';
-    return ob_get_clean();
-}
-add_shortcode('qr_code_generator', 'qrcode_generator_shortcode');
+// Function to generate and save QR Code with logo and label
+function generate_qr_code_image() {
+    $url = 'https://emeraldnational.com/external-requisition/';
 
-// Handle QR Code Generation
-function qrcode_generator_generate() {
-    if (!isset($_POST['qr_nonce']) || !wp_verify_nonce($_POST['qr_nonce'], 'generate_qr')) {
-        wp_send_json_error(['message' => 'Invalid Request']);
+    // Get WordPress uploads directory
+    $upload_dir = wp_upload_dir();
+    $file_path = $upload_dir['path'] . '/qr-code-with-logo.png';
+
+    // Check if the QR code already exists
+    if (!file_exists($file_path)) {
+        // Create QR Code
+        $qrCode = new QrCode(
+            data: $url,
+            encoding: new Encoding('UTF-8'),
+            size: 300,
+            margin: 10,
+            foregroundColor: new Color(0, 93, 55),
+            backgroundColor: new Color(255, 255, 255)
+        );
+
+        // Create logo
+        $logo = new Logo(
+            path: __DIR__ . '/assets/logo.png', // Make sure this file exists
+            resizeToWidth: 60,
+            punchoutBackground: true
+        );
+
+        // Write QR code with logo and label
+        $writer = new PngWriter();
+        $result = $writer->write($qrCode, $logo);
+
+        // Validate the result
+        $writer->validateResult($result, $url);
+
+        // Save QR Code Image
+        $result->saveToFile($file_path);
     }
 
-    $text = sanitize_text_field($_POST['qr_text'] ?? '');
-    if (empty($text)) {
-        wp_send_json_error(['message' => 'Text cannot be empty']);
-    }
-
-    $qr = new QRGenerator($text);
-    $image_url = $qr->generate();
-
-    wp_send_json_success(['qr_image' => $image_url]);
+    return $file_path;
 }
-add_action('wp_ajax_generate_qr', 'qrcode_generator_generate');
-add_action('wp_ajax_nopriv_generate_qr', 'qrcode_generator_generate');
+
+// Run QR code generation on plugin activation
+function qr_code_generator_activate() {
+    generate_qr_code_image();
+}
+register_activation_hook(__FILE__, 'qr_code_generator_activate');
+
+// Shortcode to display QR Code
+function qr_code_generator_display() {
+    $upload_dir = wp_upload_dir();
+    $file_url = $upload_dir['url'] . '/qr-code-with-logo.png';
+
+    return '<img src="' . esc_url($file_url) . '" alt="QR Code with Logo" style="max-width: 300px;">';
+}
+add_shortcode('qr_code_generator', 'qr_code_generator_display');
